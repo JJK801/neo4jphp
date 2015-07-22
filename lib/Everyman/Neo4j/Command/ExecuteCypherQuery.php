@@ -13,6 +13,8 @@ use Everyman\Neo4j\Exception,
  */
 class ExecuteCypherQuery extends Command
 {
+	const DefaultCypherPath = '/cypher';
+
 	protected $query = null;
 
 	/**
@@ -59,12 +61,15 @@ class ExecuteCypherQuery extends Command
 	 */
 	protected function getPath()
 	{
-		$url = $this->client->hasCapability(Client::CapabilityCypher);
-		if (!$url) {
+		$result = $this->client->hasCapability(Client::CapabilityCypher);
+
+		if (!$result) {
 			throw new Exception('Cypher unavailable');
+		} else if (true === $result) {
+			return self::DefaultCypherPath;
 		}
 
-		return preg_replace('/^.+\/db\/data/', '', $url);
+		return preg_replace('/^.*\/db\/data/', '', $result);
 	}
 
 	/**

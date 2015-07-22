@@ -33,6 +33,10 @@ class Client
 	 * @var callable The relation factory
 	 */
 	protected $relFactory = null;
+	/**
+	 * @var array Trusted capabilities
+	 */
+	protected $capabilities = array();
 
 	/**
 	 * Initialize the client
@@ -484,30 +488,35 @@ class Client
 	 */
 	public function hasCapability($capability)
 	{
-		$info = $this->getServerInfo();
+		if (!isset($this->capabilities[$capability])) {
+			$info = $this->getServerInfo();
+			$result = false;
 
-		switch ($capability) {
-			case self::CapabilityLabel:
-			case self::CapabilityTransactions:
-				return $info['version']['major'] > 1;
+			switch ($capability) {
+				case self::CapabilityLabel:
+				case self::CapabilityTransactions:
+					$result = $info['version']['major'] > 1;
+					break;
 
-			case self::CapabilityCypher:
-				if (isset($info['cypher'])) {
-					return $info['cypher'];
-				} else if (isset($info['extensions']['CypherPlugin']['execute_query'])) {
-					return $info['extensions']['CypherPlugin']['execute_query'];
-				}
-				return false;
+				case self::CapabilityCypher:
+					if (isset($info['cypher'])) {
+						$result = $info['cypher'];
+					} else if (isset($info['extensions']['CypherPlugin']['execute_query'])) {
+						$result = $info['extensions']['CypherPlugin']['execute_query'];
+					}
+					break;
 
-			case self::CapabilityGremlin:
-				if (isset($info['extensions']['GremlinPlugin']['execute_script'])) {
-					return $info['extensions']['GremlinPlugin']['execute_script'];
-				}
-				return false;
+				case self::CapabilityGremlin:
+					if (isset($info['extensions']['GremlinPlugin']['execute_script'])) {
+						$result = $info['extensions']['GremlinPlugin']['execute_script'];
+					}
+					break;
+			}
 
-			default:
-				return false;
+			$this->capabilities[$capability] = $result;
 		}
+
+		return $this->capabilities[$capability];
 	}
 
 	/**
@@ -827,5 +836,41 @@ class Client
 	{
 		$result = $command->execute();
 		return $result;
+	}
+
+	/**
+	 * Set a trusted capability
+	 *
+	 * @param string $name  Capability name
+	 * @param mixed  $value Capability trusted value
+	 *
+	 * @throws Exception If capability is unknown
+	 * @return $this
+	 */
+	public function setCapability ($name, $value)
+	{
+		if (constant('self::Capability'.ucfirst(strtolower($name))) == $name) {
+			$this->capabilities[$name] = $value;
+		} else {
+			throw new \Exception(sprintf('Unknown Neo4J capability "%s"', $name));
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Set a trusted capabilities
+	 *
+	 * @param mixed[] $capabilities Capabilities definitions
+	 *
+	 * @return $this
+	 */
+	public function setCapabilities (array $capabilities)
+	{
+		foreach($capabilities as $name => $value) {
+			$this->setCapability($name, $value);
+		}
+
+		return $this;
 	}
 }
